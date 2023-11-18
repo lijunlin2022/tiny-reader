@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter } from "react-router-dom";
+import "amfe-flexible";
 
 import AppRouter from "@/routers";
 
