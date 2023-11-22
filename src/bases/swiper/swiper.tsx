@@ -3,10 +3,12 @@ import React from "react";
 import "./styles/swiper.scss";
 import SwiperIndicator from "./swiper-indicator";
 import SwiperItem from "./swiper-item";
+import { modules } from "./utils";
 
 export interface SwiperProps {
   loop?: boolean;
   autoplay?: boolean;
+  autoplayInterval?: number;
   defaultIndex?: number;
   showIndicator?: boolean;
   children: React.ReactElement | React.ReactElement[];
@@ -27,6 +29,8 @@ const Swiper: React.FC<SwiperProps> = (props) => {
     props.defaultIndex || 0,
   );
   const [dragging, setDrugging] = React.useState<boolean>(false);
+  const autoplaying = React.useRef<boolean>(false);
+  const intervalRef = React.useRef<number>(0);
 
   const startRef = React.useRef<number>(0);
   const slideRatioRef = React.useRef<number>(0);
@@ -48,7 +52,18 @@ const Swiper: React.FC<SwiperProps> = (props) => {
   }, [props.children]);
 
   const getFinalPosition = (index: number) => {
-    const finalPosition = index * 100 - currentIndex * 100;
+    let finalPosition = index * 100 - currentIndex * 100;
+
+    if (!props.loop) {
+      return finalPosition;
+    }
+
+    const totalWidth = count * 1000;
+
+    // 无限轮播，当前轮播图前后平均分配轮播图的数量
+    const flagWidth = totalWidth / 2;
+
+    finalPosition = modules(finalPosition + flagWidth, totalWidth) - flagWidth;
     return finalPosition;
   };
 
@@ -60,19 +75,31 @@ const Swiper: React.FC<SwiperProps> = (props) => {
     return diff / element.offsetWidth;
   };
 
-  const boundIndex = (index: number) => {
-    const min = 0;
-    const max = count - 1;
-    let ret = index;
-    ret = Math.max(index, min);
-    ret = Math.min(ret, max);
-    return ret;
-  };
+  const boundIndex = React.useCallback(
+    (index: number) => {
+      const min = 0;
+      const max = count - 1;
+      let ret = index;
+      ret = Math.max(index, min);
+      ret = Math.min(ret, max);
+      return ret;
+    },
+    [count],
+  );
 
-  const swipeTo = (index: number) => {
-    const targetIndex = boundIndex(index);
-    setCurrentIndex(targetIndex);
-  };
+  const swipeTo = React.useCallback(
+    (index: number) => {
+      const targetIndex = props.loop
+        ? modules(index, count)
+        : boundIndex(index);
+      setCurrentIndex(targetIndex);
+    },
+    [boundIndex, setCurrentIndex, count, props.loop],
+  );
+
+  const swipeNext = React.useCallback(() => {
+    swipeTo(currentIndex + 1);
+  }, [swipeTo, currentIndex]);
 
   const onTouchEnd = () => {
     const index = Math.round(slideRatioRef.current);
@@ -102,18 +129,43 @@ const Swiper: React.FC<SwiperProps> = (props) => {
     startRef.current = e.changedTouches[0].clientX;
 
     setDrugging(true);
+    clearInterval(intervalRef.current);
+    autoplaying.current = false;
 
     document.addEventListener("touchmove", onTouchMove);
     document.addEventListener("touchend", onTouchEnd);
   };
 
-  const getTransition = () => {
+  const getTransition = (position: number) => {
     if (dragging) {
+      return "";
+    } else if (autoplaying.current) {
+      if (position === -100 || position === 0) {
+        return "transform 0.3s ease-out";
+      } else {
+        return "";
+      }
+    } else if (position < -100) {
       return "";
     }
 
     return "transform 0.3s ease-out";
   };
+
+  React.useEffect(() => {
+    if (props.autoplay && !dragging) {
+      return;
+    }
+
+    intervalRef.current = window.setInterval(() => {
+      autoplaying.current = true;
+      swipeNext();
+    }, props.autoplayInterval);
+
+    return () => {
+      clearInterval(intervalRef.current);
+    };
+  }, [dragging, props.autoplay, props.autoplayInterval, swipeNext]);
 
   const renderSwiperItem = () => {
     return (
@@ -144,7 +196,7 @@ const Swiper: React.FC<SwiperProps> = (props) => {
   }
 
   return (
-    <div className={classPrefix}>
+    <div className={classPrefix} style={props.style}>
       <div className={`${classPrefix}-track`} ref={trackRef}>
         {renderSwiperItem()}
       </div>
@@ -167,6 +219,7 @@ export default Swiper;
 
 Swiper.defaultProps = {
   autoplay: false,
+  autoplayInterval: 3000,
   defaultIndex: 0,
   showIndicator: false,
   loop: false,
