@@ -58,7 +58,7 @@ const Swiper: React.FC<SwiperProps> = (props) => {
       return finalPosition;
     }
 
-    const totalWidth = count * 1000;
+    const totalWidth = count * 100;
 
     // 无限轮播，当前轮播图前后平均分配轮播图的数量
     const flagWidth = totalWidth / 2;
