@@ -22,7 +22,7 @@ function Home() {
   ];
 
   return (
-    <Swiper>
+    <Swiper showIndicator>
       {banners.map((item, index) => (
         <Swiper.Item key={index}>
           <img src={item.src} alt={item.alt} width="100%" height="100%" />
